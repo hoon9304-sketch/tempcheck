@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>포장 온도조사 시스템</title>
+    <style>
+        :root {
+            --primary-color: #2b6cb0;
+            --secondary-color: #4299e1;
+            --bg-color: #edf2f7;
+            --card-bg: #ffffff;
+            --border-color: #cbd5e0;
+            --text-color: #2d3748;
+        }
+        
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-color); padding: 10px; font-size: 15px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        
+        h2 { text-align: center; margin: 10px 0 15px 0; color: var(--primary-color); font-size: 1.4rem; letter-spacing: -0.5px; }
+        
+        .card { background: var(--card-bg); border-radius: 12px; padding: 14px; margin-bottom: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }
+        
+        .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+        .form-group { display: flex; flex-direction: column; }
+        .form-group label { font-size: 0.85rem; font-weight: bold; margin-bottom: 4px; color: #4a5568; }
+        .form-group input, .form-group select { padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 14px; width: 100%; }
+        
+        .filter-title { font-size: 0.9rem; font-weight: bold; margin-bottom: 6px; color: #4a5568; text-align: center;}
+        .tab-container { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-bottom: 12px; }
+        .tab-btn { padding: 10px 2px; border: 1px solid var(--border-color); background: #fff; border-radius: 8px; font-weight: bold; font-size: 0.85rem; cursor: pointer; color: #718096; text-align: center; }
+        .tab-btn.active { background-color: var(--primary-color); color: white; border-color: var(--primary-color); }
+        
+        .time-setter { background: #ebf8ff; border: 1px solid #bee3f8; padding: 10px; border-radius: 8px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+        .time-setter label { font-weight: bold; color: #2b6cb0; font-size: 0.9rem; }
+        .time-setter input { width: 130px; padding: 6px; text-align: center; border: 1px solid #90cdf4; border-radius: 4px; font-size: 14px; }
+
+        .zone-header { background: #4a5568; color: white; padding: 6px 12px; border-radius: 6px; font-weight: bold; font-size: 0.95rem; margin-top: 15px; margin-bottom: 8px; }
+        
+        .location-row { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; margin-bottom: 8px; }
+        .location-name { font-weight: bold; color: #1a202c; font-size: 0.95rem; margin-bottom: 8px; border-bottom: 1px dashed #cbd5e0; padding-bottom: 4px; }
+        
+        .io-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .part-box { display: flex; flex-direction: column; background: #fff; border: 1px solid #e2e8f0; padding: 6px; border-radius: 6px; }
+        .part-title { font-size: 0.8rem; font-weight: bold; color: #718096; margin-bottom: 4px; }
+        .part-inputs { display: flex; flex-direction: column; gap: 4px; }
+        
+        .part-inputs input { width: 100%; padding: 6px; border: 1px solid var(--border-color); border-radius: 4px; text-align: center; font-size: 15px; font-weight: 500; }
+        .part-inputs input:focus { border-color: var(--secondary-color); outline: none; background: #fffaf0; }
+        
+        .btn-group { display: flex; gap: 8px; margin-top: 15px; }
+        button.main-btn { flex: 1; padding: 14px; border: none; border-radius: 8px; font-weight: bold; font-size: 1rem; cursor: pointer; transition: background 0.2s; }
+        .btn-save { background-color: var(--primary-color); color: white; }
+        .btn-export { background-color: #2c7a7b; color: white; }
+        
+        .history-list { max-height: 160px; overflow-y: auto; font-size: 0.85rem; }
+        .history-item { padding: 8px 4px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
+        .btn-del { background: #c53030; color: white; padding: 4px 8px; font-size: 0.75rem; border: none; border-radius: 4px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>포장 온도조사 기록 시스템</h2>
+    
+    <div class="card">
+        <div class="meta-grid">
+            <div class="form-group">
+                <label>조사 일자</label>
+                <input type="date" id="surveyDate">
+            </div>
+            <div class="form-group">
+                <label>조사자</label>
+                <input type="text" id="inspector" value="김성훈">
+            </div>
+        </div>
+        <div class="meta-grid">
+            <div class="form-group">
+                <label>당일 날씨</label>
+                <select id="weather">
+                    <option value="맑음">맑음</option>
+                    <option value="흐림">흐림</option>
+                    <option value="비">비</option>
+                    <option value="눈">눈</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>특이사항</label>
+                <input type="text" id="remarks" placeholder="특이사항">
+            </div>
+        </div>
+    </div>
+
+    <div class="card" style="padding-bottom: 8px;">
+        <div class="filter-title">🔍 현재 작성할 조사 회차를 선택하세요</div>
+        <div class="tab-container">
+            <button class="tab-btn active" data-turn="오전1회" onclick="switchTimeTab('오전1회')">오전 1회</button>
+            <button class="tab-btn" data-turn="오전2회" onclick="switchTimeTab('오전2회')">오전 2회</button>
+            <button class="tab-btn" data-turn="오후1회" onclick="switchTimeTab('오후1회')">오후 1회</button>
+            <button class="tab-btn" data-turn="오후2회" onclick="switchTimeTab('오후2회')">오후 2회</button>
+        </div>
+        
+        <div class="time-setter">
+            <label id="currentTimeLabel">오전 1회 조사시간</label>
+            <input type="text" pattern="[0-9]*" inputmode="numeric" id="surveyTimeInput" value="09:00" placeholder="예: 0900" oninput="formatTimeInput(this)">
+        </div>
+    </div>
+
+    <div class="card">
+        <div id="dynamicForm">
+            </div>
+    </div>
+
+    <div class="btn-group">
+        <button class="main-btn btn-save" onclick="saveCurrentData()">현재 회차 폰에 저장</button>
+        <button class="main-btn btn-export" onclick="exportDataToCSV()">엑셀(CSV) 내보내기</button>
+    </div>
+
+    <div class="card" style="margin-top: 12px;">
+        <div style="font-weight: bold; font-size: 0.9rem; margin-bottom: 6px; color:#4a5568;">📱 기기 보관함 내역</div>
+        <div class="history-list" id="historyList"></div>
+    </div>
+</div>
+
+<script>
+    const zoneStructure = {
+        "A 구역": [
+            { id: "A1", label: "A1 지점" },
+            { id: "A3-1", label: "A3-1 (사무실방향)" },
+            { id: "A3-2", label: "A3-2 (포장방향)" },
+            { id: "A4", label: "A4 지점" },
+            { id: "A6", label: "A6 지점" }
+        ],
+        "B 구역": [
+            { id: "B1", label: "B1 지점" },
+            { id: "B3", label: "B3 지점" },
+            { id: "B4", label: "B4 지점" }
+        ],
+        "C 구역": [
+            { id: "C4", label: "C4 지점" },
+            { id: "C6", label: "C6 지점" },
+            { id: "C7", label: "C7 지점" }
+        ]
+    };
+
+    let currentTab = "오전1회";
+    
+    let tempMemory = {
+        "오전1회": {}, "오전2회": {}, "오후1회": {}, "오후2회": {}
+    };
+
+    // 회차별 입력된 실제 측정 시간을 따로 기억할 별도 임시 메모리
+    let timeMemory = {
+        "오전1회": "09:00", "오전2회": "11:00", "오후1회": "14:00", "오후2회": "16:00"
+    };
+
+    document.getElementById('surveyDate').value = new Date().toISOString().substring(0, 10);
+
+    // 폼 자동 생성
+    function buildForm() {
+        const formContainer = document.getElementById('dynamicForm');
+        formContainer.innerHTML = '';
+
+        for (const [zoneName, locations] of Object.entries(zoneStructure)) {
+            const zoneHeader = document.createElement('div');
+            zoneHeader.className = 'zone-header';
+            zoneHeader.innerText = `■ ${zoneName}`;
+            formContainer.appendChild(zoneHeader);
+
+            locations.forEach(loc => {
+                const row = document.createElement('div');
+                row.className = 'location-row';
+                row.innerHTML = `
+                    <div class="location-name">${loc.label}</div>
+                    <div class="io-grid">
+                        <div class="part-box">
+                            <span class="part-title">입수구 (A/D)</span>
+                            <div class="part-inputs">
+                                <input type="text" inputmode="decimal" placeholder="A ℃" class="temp-field" data-loc="${loc.id}" data-part="입수구_A" onfocus="onTempFocus(this)" onblur="onTempBlur(this)">
+                                <input type="text" inputmode="decimal" placeholder="D ℃" class="temp-field" data-loc="${loc.id}" data-part="입수구_D" onfocus="onTempFocus(this)" onblur="onTempBlur(this)">
+                            </div>
+                        </div>
+                        <div class="part-box">
+                            <span class="part-title">출수구 (A/D)</span>
+                            <div class="part-inputs">
+                                <input type="text" inputmode="decimal" placeholder="A ℃" class="temp-field" data-loc="${loc.id}" data-part="출수구_A" onfocus="onTempFocus(this)" onblur="onTempBlur(this)">
+                                <input type="text" inputmode="decimal" placeholder="D ℃" class="temp-field" data-loc="${loc.id}" data-part="출수구_D" onfocus="onTempFocus(this)" onblur="onTempBlur(this)">
+                            </div>
+                        </div>
+                    </div>
+                `;
+                formContainer.appendChild(row);
+            });
+        }
+    }
+
+    // [개선된 시간 핸들러] 버그 차단 및 예외처리 강화 버전
+    function formatTimeInput(input) {
+        let val = input.value.replace(/[^0-9]/g, ''); // 숫자 제외 모두 제거
+        
+        if (val.length > 4) {
+            val = val.substring(0, 4);
+        }
+        
+        // 4자리가 완성되면 형식을 입혀 노출시키고 메모리에 저장
+        if (val.length === 4) {
+            let hours = val.substring(0, 2);
+            let mins = val.substring(2, 4);
+            
+            // 시간 조건 정상 검증 (00~23시, 00~59분 내에 올 때만 포맷 적용)
+            if (parseInt(hours, 10) < 24 && parseInt(mins, 10) < 60) {
+                input.value = `${hours}:${mins}`;
+                timeMemory[currentTab] = input.value; // 메모리에 박제
+            } else {
+                input.value = val;
+            }
+        } else {
+            input.value = val;
+            timeMemory[currentTab] = val; // 불완전한 입력 상태도 임시 보관
+        }
+    }
+
+    // 온도 포커스인 단위 숨기기
+    function onTempFocus(input) {
+        const key = `${input.dataset.loc}_${input.dataset.part}`;
+        const rawValue = tempMemory[currentTab][key] || "";
+        input.value = rawValue;
+    }
+
+    // 온도 포커스아웃 단위 붙이기 (숫자 뒤에 ℃ 표시)
+    function onTempBlur(input) {
+        const key = `${input.dataset.loc}_${input.dataset.part}`;
+        let val = input.value.trim();
+        
+        if (val !== "") {
+            val = val.replace(/[^0-9.]/g, '');
+            if (!isNaN(val) && val !== "") {
+                tempMemory[currentTab][key] = val;
+                input.value = `${val} ℃`;
+                return;
+            }
+        }
+        tempMemory[currentTab][key] = "";
+        input.value = "";
+    }
+
+    // 회차 선택 탭 스위칭 매커니즘 (시간 유실 방지 포함)
+    function switchTimeTab(targetTab) {
+        currentTab = targetTab;
+        
+        const btns = document.querySelectorAll('.tab-container .tab-btn');
+        btns.forEach(btn => {
+            if(btn.getAttribute('data-turn') === targetTab) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+
+        document.getElementById('currentTimeLabel').innerText = `${targetTab} 조사시간`;
+        
+        // 메모리에 기록된 시간 가져오기
+        document.getElementById('surveyTimeInput').value = timeMemory[targetTab];
+        
+        const fields = document.querySelectorAll('.temp-field');
+        fields.forEach(f => {
+            const key = `${f.dataset.loc}_${f.dataset.part}`;
+            const numVal = tempMemory[targetTab][key];
+            f.value = numVal ? `${numVal} ℃` : "";
+        });
+    }
+
+    // 로컬 데이터베이스 내부 저장
+    function saveCurrentData() {
+        const date = document.getElementById('surveyDate').value;
+        const inspector = document.getElementById('inspector').value;
+        const weather = document.getElementById('weather').value;
+        const remarks = document.getElementById('remarks').value;
+        const inputTime = document.getElementById('surveyTimeInput').value;
+
+        if(!date) { alert('날짜를 지정해 주세요.'); return; }
+        if(inputTime.length < 5 || !inputTime.includes(':')) {
+            alert('조사시간을 정확히 입력해 주세요. (예: 4자리 숫자 0900 입력)');
+            return;
+        }
+
+        let localDatabase = JSON.parse(localStorage.getItem('megaTempRecords')) || [];
+        const currentData = tempMemory[currentTab];
+        
+        let savedCount = 0;
+
+        for (const [key, value] of Object.entries(currentData)) {
+            if(value && value.trim() !== '') {
+                const [loc, part] = key.split('_');
+                
+                localDatabase = localDatabase.filter(r => 
+                    !(r.date === date && r.turn === currentTab && r.loc === loc && r.part === part)
+                );
+
+                localDatabase.push({
+                    date: date,
+                    inspector: inspector,
+                    weather: weather,
+                    remarks: remarks,
+                    turn: currentTab,
+                    time: inputTime,
+                    loc: loc,
+                    part: part,
+                    value: value
+                });
+                savedCount++;
+            }
+        }
+
+        if(savedCount === 0) {
+            alert('현재 회차에 입력된 온도가 없습니다.');
+            return;
+        }
+
+        localStorage.setItem('megaTempRecords', JSON.stringify(localDatabase));
+        alert(`[${currentTab}] 총 ${savedCount}개의 온도 데이터가 기기에 저장되었습니다.`);
+        
+        // 데이터 저장 완료 후 메모리 및 뷰 초기화
+        tempMemory[currentTab] = {};
+        const fields = document.querySelectorAll('.temp-field');
+        fields.forEach(f => f.value = '');
+        
+        loadHistoryList();
+    }
+
+    function loadHistoryList() {
+        const db = JSON.parse(localStorage.getItem('megaTempRecords')) || [];
+        const histDiv = document.getElementById('historyList');
+        histDiv.innerHTML = '';
+
+        if(db.length === 0) {
+            histDiv.innerHTML = '<div style="color:#a0aec0; text-align:center; padding:15px;">저장된 데이터 내역이 비어있습니다.</div>';
+            return;
+        }
+
+        const groups = [...new Set(db.map(r => `${r.date} [${r.turn}]`))];
+        groups.sort().reverse();
+
+        groups.forEach(g => {
+            const split = g.split(' ');
+            const targetDate = split[0];
+            const targetTurn = split[1].replace('[','').replace(']','');
+            const count = db.filter(r => r.date === targetDate && r.turn === targetTurn).length;
+
+            const item = document.createElement('div');
+            item.className = 'history-item';
+            item.innerHTML = `
+                <span>📅 <b>${targetDate}</b> - ${targetTurn} (${count}건)</span>
+                <button class="btn-del" onclick="deleteHistoryGroup('${targetDate}', '${targetTurn}')">삭제</button>
+            `;
+            histDiv.appendChild(item);
+        });
+    }
+
+    function deleteHistoryGroup(date, turn) {
+        if(confirm(`${date}일자 ${turn} 기록을 전체 삭제하시겠습니까?`)) {
+            let db = JSON.parse(localStorage.getItem('megaTempRecords')) || [];
+            db = db.filter(r => !(r.date === date && r.turn === turn));
+            localStorage.setItem('megaTempRecords', JSON.stringify(db));
+            loadHistoryList();
+        }
+    }
+
+    function exportDataToCSV() {
+        const db = JSON.parse(localStorage.getItem('megaTempRecords')) || [];
+        if(db.length === 0) { alert('내보낼 데이터 내역이 없습니다.'); return; }
+
+        let csvString = "\uFEFF"; 
+        csvString += "조사일자,조사자,날씨,조사회차,실제측정시간,측정지점,부위분류,온도(℃),특이사항\n";
+
+        db.forEach(r => {
+            csvString += `"${r.date}","${r.inspector}","${r.weather}","${r.turn}","${r.time}","${r.loc}","${r.part}","${r.value}","${r.remarks}"\n`;
+        });
+
+        const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+        const downloadAnchor = document.createElement("a");
+        const blobUrl = URL.createObjectURL(blob);
+        
+        downloadAnchor.setAttribute("href", blobUrl);
+        downloadAnchor.setAttribute("download", `통합_포장_온도조사_결과리포트.csv`);
+        downloadAnchor.style.visibility = 'hidden';
+        document.body.appendChild(downloadAnchor);
+        downloadAnchor.click();
+        document.body.removeChild(downloadAnchor);
+    }
+
+    buildForm();
+    loadHistoryList();
+</script>
+</body>
+</html>
