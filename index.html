@@ -49,7 +49,7 @@
         <div class="meta-grid">
             <div class="form-group">
                 <label>조사 일자</label>
-                <input type="date" id="surveyDate" onchange="loadRealtimeData()">
+                <input type="date" id="surveyDate" onchange="onDateChange()">
             </div>
             <div class="form-group">
                 <label>조사자</label>
@@ -58,7 +58,7 @@
         </div>
         <div class="meta-grid">
             <div class="form-group">
-                <label>당일 날씨</label>
+                <label>당일 날씨 (우두동 연동)</label>
                 <select id="weather">
                     <option value="맑음">맑음</option>
                     <option value="흐림">흐림</option>
@@ -67,8 +67,14 @@
                 </select>
             </div>
             <div class="form-group">
-                <label>특이사항</label>
-                <input type="text" id="remarks" placeholder="특이사항">
+                <label>탱크 설정 온도</label>
+                <input type="text" id="tankTemp" placeholder="예: 4.5" onblur="formatTankTemp(this)">
+            </div>
+        </div>
+        <div class="meta-grid">
+            <div class="form-group" style="grid-column: span 2;">
+                <label>특이사항 (기온 자동입력)</label>
+                <input type="text" id="remarks" placeholder="특이사항 및 외부 기온">
             </div>
         </div>
     </div>
@@ -125,6 +131,8 @@
     let tempMemory = { "오전1회": {}, "오전2회": {}, "오후1회": {}, "오후2회": {} };
     let timeMemory = { "오전1회": "09:00", "오전2회": "11:00", "오후1회": "14:00", "오후2회": "16:00" };
     let globalCloudDB = [];
+    let isInitialLoad = true;
+    let mySavingProcess = false;
 
     document.getElementById('surveyDate').value = new Date().toISOString().substring(0, 10);
 
@@ -164,12 +172,57 @@
         }
     }
 
+    // 춘천시 우두동 공공 기상 데이터 추출 함수 (Open-Meteo 사용으로 인증키 비요구 처리)
+    function fetchChuncheonWeather() {
+        const dateVal = document.getElementById('surveyDate').value;
+        if (!dateVal) return;
+        
+        const todayStr = new Date().toISOString().substring(0, 10);
+        if (dateVal !== todayStr) return; // 오늘 날짜인 경우에만 실시간 날씨 자동 연동
+
+        // 춘천시 우두동 좌표 (위도: 37.904, 경도: 127.734)
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=37.904&longitude=127.734&current=temperature_2m,weather_code&timezone=Asia%2FSeoul`;
+
+        fetch(url)
+            .then(res => res.json())
+            .then(data => {
+                if (data && data.current) {
+                    const temp = data.current.temperature_2m;
+                    const code = data.current.weather_code;
+                    
+                    // 기상 코드 매핑 (맑음, 흐림, 비, 눈)
+                    let weatherResult = "맑음";
+                    if ([1, 2, 3].includes(code)) weatherResult = "흐림";
+                    else if ([51, 53, 55, 61, 63, 65, 80, 81, 82].includes(code)) weatherResult = "비";
+                    else if ([71, 73, 75, 77, 85, 86].includes(code)) weatherResult = "눈";
+                    
+                    document.getElementById('weather').value = weatherResult;
+                    document.getElementById('remarks').value = `[우두동 기온: ${temp}℃] `;
+                }
+            })
+            .catch(err => console.log("날씨 로드 실패:", err));
+    }
+
+    function onDateChange() {
+        loadRealtimeData();
+        fetchChuncheonWeather();
+    }
+
     function formatTimeInput(input) {
         let val = input.value.replace(/[^0-9]/g, '');
         if (val.length === 4) {
             input.value = `${val.substring(0, 2)}:${val.substring(2, 4)}`;
             timeMemory[currentTab] = input.value;
         } else { timeMemory[currentTab] = val; }
+    }
+
+    function formatTankTemp(input) {
+        let val = input.value.trim().replace(/[^0-9.]/g, '');
+        if (val !== "" && !isNaN(val)) {
+            input.value = `${val} ℃`;
+        } else {
+            input.value = "";
+        }
     }
 
     function onTempFocus(input) {
@@ -222,6 +275,7 @@
                 if(data.meta) {
                     document.getElementById('inspector').value = data.meta.inspector || "김성훈";
                     document.getElementById('weather').value = data.meta.weather || "맑음";
+                    document.getElementById('tankTemp').value = data.meta.tankTemp ? `${data.meta.tankTemp}` : "";
                     document.getElementById('remarks').value = data.meta.remarks || "";
                 }
                 for (const [turn, turnData] of Object.entries(data)) {
@@ -229,12 +283,14 @@
                     if (turnData.time) timeMemory[turn] = turnData.time;
                     if (turnData.values) tempMemory[turn] = turnData.values;
                 }
+            } else {
+                document.getElementById('tankTemp').value = "";
+                document.getElementById('remarks').value = "";
             }
             switchTimeTab(currentTab);
         });
     }
 
-    // [핵심 추가] 내역 클릭 시 해당 날짜와 회차 데이터로 즉시 상단 화면 변경하는 함수
     function viewHistoryDetails(selectedDate, selectedTurn) {
         document.getElementById('surveyDate').value = selectedDate;
         
@@ -245,6 +301,7 @@
                 if(data.meta) {
                     document.getElementById('inspector').value = data.meta.inspector || "김성훈";
                     document.getElementById('weather').value = data.meta.weather || "맑음";
+                    document.getElementById('tankTemp').value = data.meta.tankTemp ? `${data.meta.tankTemp}` : "";
                     document.getElementById('remarks').value = data.meta.remarks || "";
                 }
                 for (const [turn, turnData] of Object.entries(data)) {
@@ -254,7 +311,7 @@
                 }
             }
             switchTimeTab(selectedTurn);
-            window.scrollTo({ top: 0, behavior: 'smooth' }); // 화면 맨 위로 부드럽게 스크롤
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         });
     }
 
@@ -262,6 +319,7 @@
         const date = document.getElementById('surveyDate').value;
         const inspector = document.getElementById('inspector').value;
         const weather = document.getElementById('weather').value;
+        const tankTemp = document.getElementById('tankTemp').value;
         const remarks = document.getElementById('remarks').value;
         const inputTime = document.getElementById('surveyTimeInput').value;
 
@@ -273,17 +331,21 @@
             }
         });
 
-        const metaData = { inspector, weather, remarks };
+        const metaData = { inspector, weather, tankTemp, remarks };
         const currentData = tempMemory[currentTab];
 
+        mySavingProcess = true;
+        
         database.ref('records/' + date + '/meta').set(metaData);
         database.ref('records/' + date + '/' + currentTab).set({
             time: inputTime,
             values: currentData
         }).then(() => {
             alert(`☁️ [${currentTab}] 데이터가 실시간 클라우드 DB에 동기화되었습니다!`);
+            setTimeout(() => { mySavingProcess = false; }, 1500);
         }).catch((error) => {
             alert("저장 실패: " + error.message);
+            mySavingProcess = false;
         });
     }
 
@@ -292,10 +354,12 @@
             const allData = snapshot.val();
             const histDiv = document.getElementById('historyList');
             histDiv.innerHTML = '';
-            globalCloudDB = [];
+            
+            let newCloudDB = [];
 
             if (!allData) {
                 histDiv.innerHTML = '<div style="color:#a0aec0; text-align:center; padding:15px;">저장 내역이 비어있습니다.</div>';
+                isInitialLoad = false;
                 return;
             }
 
@@ -322,28 +386,42 @@
                         for(const [key, value] of Object.entries(turnData.values)) {
                             if(!value) continue;
                             const [loc, part] = key.split('_');
-                            globalCloudDB.push({
+                            newCloudDB.push({
                                 date, inspector: meta.inspector || "", weather: meta.weather || "",
-                                turn, time: turnData.time || "", loc, part, value, remarks: meta.remarks || ""
+                                tankTemp: meta.tankTemp || "", turn, time: turnData.time || "", 
+                                loc, part, value, remarks: meta.remarks || ""
                             });
                         }
                     }
                 }
             });
+
+            if (!isInitialLoad && !mySavingProcess && newCloudDB.length > globalCloudDB.length) {
+                const latestRecord = newCloudDB[0];
+                if(latestRecord) {
+                    alert(`🔔 실시간 알림: 새로운 기록이 등록되었습니다!\n[날짜]: ${latestRecord.date}\n[회차]: ${latestRecord.turn}\n\n하단 목록에서 즉시 조회가 가능합니다.`);
+                }
+            }
+
+            globalCloudDB = newCloudDB;
+            isInitialLoad = false;
         });
     }
 
     function deleteCloudGroup(date, turn) {
         if(confirm(`⚠️ ${date}의 ${turn} 기록을 삭제하시겠습니까?`)) {
-            database.ref('records/' + date + '/' + turn).remove();
+            mySavingProcess = true;
+            database.ref('records/' + date + '/' + turn).remove().then(() => {
+                setTimeout(() => { mySavingProcess = false; }, 1000);
+            });
         }
     }
 
     function exportDataToCSV() {
         if(globalCloudDB.length === 0) { alert('내보낼 데이터가 없습니다.'); return; }
-        let csvString = "\uFEFF조사일자,조사자,날씨,조사회차,실제측정시간,측정지점,부위분류,온도(℃),특이사항\n";
+        let csvString = "\uFEFF조사일자,조사자,날씨,탱크설정온도,조사회차,실제측정시간,측정지점,부위분류,온도(℃),특이사항\n";
         globalCloudDB.forEach(r => {
-            csvString += `"${r.date}","${r.inspector}","${r.weather}","${r.turn}","${r.time}","${r.loc}","${r.part}","${r.value}","${r.remarks}"\n`;
+            csvString += `"${r.date}","${r.inspector}","${r.weather}","${r.tankTemp}","${r.turn}","${r.time}","${r.loc}","${r.part}","${r.value}","${r.remarks}"\n`;
         });
         const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
         const downloadAnchor = document.createElement("a");
@@ -356,6 +434,7 @@
 
     buildForm();
     loadRealtimeData();
+    fetchChuncheonWeather();
     trackAllHistory();
 </script>
 </body>
