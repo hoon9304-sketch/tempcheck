@@ -96,6 +96,21 @@
             </div>
         </div>
 
+        <div class="meta-grid-three" style="margin-bottom: 12px;">
+            <div class="form-group">
+                <label style="color: #2b6cb0;">A탱크 실제온도</label>
+                <input type="text" id="tankRealTempA" placeholder="실제 측정치" onblur="formatTankTemp(this)" style="border-color: #bee3f8;">
+            </div>
+            <div class="form-group">
+                <label style="color: #2b6cb0;">B탱크 실제온도</label>
+                <input type="text" id="tankRealTempB" placeholder="실제 측정치" onblur="formatTankTemp(this)" style="border-color: #bee3f8;">
+            </div>
+            <div class="form-group">
+                <label style="color: #2b6cb0;">C탱크 실제온도</label>
+                <input type="text" id="tankRealTempC" placeholder="실제 측정치" onblur="formatTankTemp(this)" style="border-color: #bee3f8;">
+            </div>
+        </div>
+
         <div class="meta-grid">
             <div class="form-group" style="grid-column: span 2;">
                 <label>특이사항</label>
@@ -199,7 +214,6 @@
         }
     }
 
-    // 충열로 251 기준 매핑 함수 (nx=73, ny=134)
     function fetchKmaWeather() {
         if (!kmaApiKey) return;
         const dateVal = document.getElementById('surveyDate').value;
@@ -212,7 +226,6 @@
         }
 
         const baseDate = dateVal.replace(/-/g, '');
-        // 0200 데이터가 누락되거나 지연될 경우를 대비해 0200 기준 호출 고정 후 다중 검색 처리
         const url = `https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst?serviceKey=${encodeURIComponent(kmaApiKey)}&pageNo=1&numOfRows=1000&dataType=JSON&base_date=${baseDate}&base_time=0200&nx=73&ny=134`;
 
         fetch(url)
@@ -236,288 +249,9 @@
                     }
                 });
 
-                // 현재 타임 예보값이 비어있을 경우 직전 가까운 데이터 백업 탐색
                 if (!tmpValue) {
                     const fallbackItem = items.find(item => item.category === "TMP");
                     if (fallbackItem) tmpValue = fallbackItem.fcstValue;
                 }
 
-                if (tmpValue) document.getElementById('outdoorTemp').value = `${tmpValue} ℃`;
-                if (tmxValue) document.getElementById('maxTemp').value = `${tmxValue}℃`;
-                if (tmnValue) document.getElementById('minTemp').value = `${tmnValue}℃`;
-
-                let weatherResult = "맑음";
-                if (ptyValue === "1" || ptyValue === "4") weatherResult = "비";
-                else if (ptyValue === "2" || ptyValue === "3") weatherResult = "눈";
-                else if (skyValue === "3" || skyValue === "4") weatherResult = "흐림";
-                
-                document.getElementById('weather').value = weatherResult;
-            })
-            .catch(err => {
-                console.log("기상청 API 연동 실패:", err);
-                document.getElementById('outdoorTemp').placeholder = "연동 실패";
-            });
-    }
-
-    function onDateChange() {
-        document.getElementById('outdoorTemp').value = "";
-        document.getElementById('outdoorTemp').placeholder = "연동 중...";
-        document.getElementById('maxTemp').value = "";
-        document.getElementById('minTemp').value = "";
-        document.getElementById('remarks').value = "";
-        loadRealtimeData();
-        fetchKmaWeather();
-    }
-
-    function formatTimeInput(input) {
-        let val = input.value.replace(/[^0-9]/g, '');
-        if (val.length === 4) {
-            input.value = `${val.substring(0, 2)}:${val.substring(2, 4)}`;
-            timeMemory[currentTab] = input.value;
-        } else { timeMemory[currentTab] = val; }
-    }
-
-    function autoDecimalConvert(val) {
-        let clean = val.replace(/[^0-9.]/g, '');
-        if (clean === "" || isNaN(clean)) return "";
-        if (clean.includes('.')) return clean;
-        if (clean.length >= 2) {
-            let num = parseFloat(clean) / 10;
-            return num.toFixed(1);
-        }
-        return clean;
-    }
-
-    function formatTankTemp(input) {
-        let converted = autoDecimalConvert(input.value.trim());
-        if (converted !== "") input.value = `${converted} ℃`;
-        else input.value = "";
-    }
-
-    function onTempFocus(input) {
-        const key = `${input.dataset.loc}_${input.dataset.part}`;
-        input.value = tempMemory[currentTab][key] || "";
-    }
-
-    function onTempMemoryValue(input, targetTab = currentTab) {
-        const key = `${input.dataset.loc}_${input.dataset.part}`;
-        let converted = autoDecimalConvert(input.value.trim());
-        if (converted !== "") {
-            tempMemory[targetTab][key] = converted;
-            input.value = `${converted} ℃`;
-        } else {
-            tempMemory[targetTab][key] = "";
-            input.value = "";
-        }
-    }
-    
-    function onTempBlur(input) {
-        onTempMemoryValue(input);
-    }
-
-    function switchTimeTab(targetTab) {
-        currentTab = targetTab;
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.classList.toggle('active', btn.getAttribute('data-turn') === targetTab);
-        });
-        document.getElementById('currentTimeLabel').innerText = `${targetTab} 조사시간`;
-        document.getElementById('surveyTimeInput').value = timeMemory[targetTab] || "";
-        
-        document.querySelectorAll('.temp-field').forEach(f => {
-            const key = `${f.dataset.loc}_${f.dataset.part}`;
-            const numVal = tempMemory[targetTab][key];
-            f.value = numVal ? `${numVal} ℃` : "";
-        });
-    }
-
-    function loadRealtimeData() {
-        const date = document.getElementById('surveyDate').value;
-        if (!date) return;
-
-        database.ref('records/' + date).once('value', (snapshot) => {
-            tempMemory = { "오전1회": {}, "오전2회": {}, "오후1회": {}, "오후2회": {} };
-            timeMemory = { "오전1회": "09:00", "오전2회": "11:00", "오후1회": "14:00", "오후2회": "16:00" };
-            
-            const data = snapshot.val();
-            if (data) {
-                if(data.meta) {
-                    document.getElementById('inspector').value = data.meta.inspector || "김성훈";
-                    document.getElementById('weather').value = data.meta.weather || "맑음";
-                    document.getElementById('outdoorTemp').value = data.meta.outdoorTemp || "";
-                    document.getElementById('maxTemp').value = data.meta.maxTemp || "";
-                    document.getElementById('minTemp').value = data.meta.minTemp || "";
-                    document.getElementById('tankTempA').value = data.meta.tankTempA || "";
-                    document.getElementById('tankTempB').value = data.meta.tankTempB || "";
-                    document.getElementById('tankTempC').value = data.meta.tankTempC || "";
-                    document.getElementById('remarks').value = data.meta.remarks || "";
-                }
-                for (const [turn, turnData] of Object.entries(data)) {
-                    if (turn === 'meta') continue;
-                    if (turnData.time) timeMemory[turn] = turnData.time;
-                    if (turnData.values) tempMemory[turn] = turnData.values;
-                }
-            } else {
-                document.getElementById('tankTempA').value = "";
-                document.getElementById('tankTempB').value = "";
-                document.getElementById('tankTempC').value = "";
-                document.getElementById('remarks').value = "";
-            }
-            switchTimeTab(currentTab);
-        });
-    }
-
-    function viewHistoryDetails(selectedDate, selectedTurn) {
-        document.getElementById('surveyDate').value = selectedDate;
-        database.ref('records/' + selectedDate).once('value', (snapshot) => {
-            tempMemory = { "오전1회": {}, "오전2회": {}, "오후1회": {}, "오후2회": {} };
-            const data = snapshot.val();
-            if (data) {
-                if(data.meta) {
-                    document.getElementById('inspector').value = data.meta.inspector || "김성훈";
-                    document.getElementById('weather').value = data.meta.weather || "맑음";
-                    document.getElementById('outdoorTemp').value = data.meta.outdoorTemp || "";
-                    document.getElementById('maxTemp').value = data.meta.maxTemp || "";
-                    document.getElementById('minTemp').value = data.meta.minTemp || "";
-                    document.getElementById('tankTempA').value = data.meta.tankTempA || "";
-                    document.getElementById('tankTempB').value = data.meta.tankTempB || "";
-                    document.getElementById('tankTempC').value = data.meta.tankTempC || "";
-                    document.getElementById('remarks').value = data.meta.remarks || "";
-                }
-                for (const [turn, turnData] of Object.entries(data)) {
-                    if (turn === 'meta') continue;
-                    if (turnData.time) timeMemory[turn] = turnData.time;
-                    if (turnData.values) tempMemory[turn] = turnData.values;
-                }
-            }
-            switchTimeTab(selectedTurn);
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        });
-    }
-
-    function saveDataToCloud() {
-        const date = document.getElementById('surveyDate').value;
-        const inspector = document.getElementById('inspector').value;
-        const weather = document.getElementById('weather').value;
-        const outdoorTemp = document.getElementById('outdoorTemp').value;
-        const maxTemp = document.getElementById('maxTemp').value;
-        const minTemp = document.getElementById('minTemp').value;
-        const tankTempA = document.getElementById('tankTempA').value;
-        const tankTempB = document.getElementById('tankTempB').value;
-        const tankTempC = document.getElementById('tankTempC').value;
-        const remarks = document.getElementById('remarks').value;
-        const inputTime = document.getElementById('surveyTimeInput').value;
-
-        if(!date) { alert('날짜를 지정해 주세요.'); return; }
-        
-        document.querySelectorAll('.temp-field').forEach(input => {
-            if(document.activeElement === input) onTempMemoryValue(input);
-        });
-
-        const metaData = { inspector, weather, outdoorTemp, maxTemp, minTemp, tankTempA, tankTempB, tankTempC, remarks };
-        const currentData = tempMemory[currentTab];
-
-        mySavingProcess = true;
-        database.ref('records/' + date + '/meta').set(metaData);
-        database.ref('records/' + date + '/' + currentTab).set({
-            time: inputTime,
-            values: currentData
-        }).then(() => {
-            alert(`☁️ [${currentTab}] 데이터가 정상적으로 저장되었습니다!`);
-            setTimeout(() => { mySavingProcess = false; }, 1500);
-        }).catch((error) => {
-            alert("저장 실패: " + error.message);
-            mySavingProcess = false;
-        });
-    }
-
-    function trackAllHistory() {
-        database.ref('records').on('value', (snapshot) => {
-            const allData = snapshot.val();
-            const histDiv = document.getElementById('historyList');
-            histDiv.innerHTML = '';
-            let newCloudDB = [];
-
-            if (!allData) {
-                histDiv.innerHTML = '<div style="color:#a0aec0; text-align:center; padding:15px;">저장 내역이 비어있습니다.</div>';
-                isInitialLoad = false; return;
-            }
-
-            Object.keys(allData).sort().reverse().forEach(date => {
-                const dateData = allData[date];
-                const meta = dateData.meta || {};
-                
-                for (const [turn, turnData] of Object.entries(dateData)) {
-                    if (turn === 'meta') continue;
-                    const count = turnData.values ? Object.keys(turnData.values).filter(k => turnData.values[k]).length : 0;
-                    if (count === 0) continue;
-
-                    const item = document.createElement('div');
-                    item.className = 'history-item';
-                    item.innerHTML = `
-                        <div class="history-clickable" onclick="viewHistoryDetails('${date}', '${turn}')">
-                            <span>🔍 <b>${date}</b> - ${turn} (${count}건)</span>
-                        </div>
-                        <button class="btn-del" onclick="deleteCloudGroup('${date}', '${turn}')">삭제</button>
-                    `;
-                    histDiv.appendChild(item);
-
-                    if(turnData.values) {
-                        for(const [key, value] of Object.entries(turnData.values)) {
-                            if(!value) continue;
-                            const [loc, part] = key.split('_');
-                            newCloudDB.push({
-                                date, inspector: meta.inspector || "", weather: meta.weather || "",
-                                outdoorTemp: meta.outdoorTemp || "", maxTemp: meta.maxTemp || "", minTemp: meta.minTemp || "",
-                                tankTempA: meta.tankTempA || "", tankTempB: meta.tankTempB || "", tankTempC: meta.tankTempC || "",
-                                turn, time: turnData.time || "", loc, part, value, remarks: meta.remarks || ""
-                            });
-                        }
-                    }
-                }
-            });
-
-            if (!isInitialLoad && !mySavingProcess && newCloudDB.length > globalCloudDB.length) {
-                const latestRecord = newCloudDB[0];
-                if(latestRecord) {
-                    alert(`🔔 실시간 알림: 새로운 기록이 등록되었습니다!\n[날짜]: ${latestRecord.date}\n[회차]: ${latestRecord.turn}`);
-                }
-            }
-            globalCloudDB = newCloudDB;
-            isInitialLoad = false;
-        });
-    }
-
-    function deleteCloudGroup(date, turn) {
-        if (confirm(`⚠️ [${date}]의 [${turn}] 기록을 삭제하시겠습니까?`)) {
-            mySavingProcess = true;
-            database.ref('records/' + date + '/' + turn).remove().then(() => {
-                setTimeout(() => { mySavingProcess = false; }, 1000);
-            }).catch((error) => {
-                alert("삭제 실패: " + error.message);
-                mySavingProcess = false;
-            });
-        }
-    }
-
-    function exportDataToCSV() {
-        if(globalCloudDB.length === 0) { alert('내보낼 데이터가 없습니다.'); return; }
-        let csvString = "\uFEFF조사일자,조사자,날씨,기상청현재기온,기상청최고기온,기상청최저기온,A탱크설정온도,B탱크설정온도,C탱크설정온도,조사회차,실제측정시간,측정지점,부위분류,온도(℃),특이사항\n";
-        globalCloudDB.forEach(r => {
-            csvString += `"${r.date}","${r.inspector}","${r.weather}","${r.outdoorTemp}","${r.maxTemp}","${r.minTemp}","${r.tankTempA}","${r.tankTempB}","${r.tankTempC}","${r.turn}","${r.time}","${r.loc}","${r.part}","${r.value}","${r.remarks}"\n`;
-        });
-        const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
-        const downloadAnchor = document.createElement("a");
-        downloadAnchor.setAttribute("href", URL.createObjectURL(blob));
-        downloadAnchor.setAttribute("download", `통합_포장_온도조사_리포트.csv`);
-        document.body.appendChild(downloadAnchor);
-        downloadAnchor.click();
-        document.body.removeChild(downloadAnchor);
-    }
-
-    buildForm();
-    loadRealtimeData();
-    fetchKmaWeather();
-    trackAllHistory();
-</script>
-</body>
-</html>
+                if (tmpValue) document.getElementById('outdoorTemp
