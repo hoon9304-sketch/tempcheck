@@ -73,7 +73,7 @@
                 <input type="text" id="outdoorTemp" readonly style="background-color: #f7fafc; color: #4a5568;" placeholder="연동 중...">
             </div>
             <div class="form-group" style="display: flex; flex-direction: column;">
-                <label>기상청 최고 / 最低 (최저)</label>
+                <label>기상청 최고 / 최저</label>
                 <div style="display: flex; gap: 4px;">
                     <input type="text" id="maxTemp" readonly style="background-color: #fff5f5; color: #c53030; text-align: center; padding: 8px 2px;" placeholder="최고">
                     <input type="text" id="minTemp" readonly style="background-color: #ebf8ff; color: #2b6cb0; text-align: center; padding: 8px 2px;" placeholder="최저">
@@ -161,7 +161,6 @@
     let isInitialLoad = true;
     let mySavingProcess = false;
 
-    // 초기 날짜 세팅
     document.getElementById('surveyDate').value = new Date().toISOString().substring(0, 10);
 
     function buildForm() {
@@ -200,6 +199,7 @@
         }
     }
 
+    // 충열로 251 기준 매핑 함수 (nx=73, ny=134)
     function fetchKmaWeather() {
         if (!kmaApiKey) return;
         const dateVal = document.getElementById('surveyDate').value;
@@ -212,7 +212,8 @@
         }
 
         const baseDate = dateVal.replace(/-/g, '');
-        const url = `https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst?serviceKey=${encodeURIComponent(kmaApiKey)}&pageNo=1&numOfRows=1000&dataType=JSON&base_date=${baseDate}&base_time=0500&nx=73&ny=135`;
+        // 0200 데이터가 누락되거나 지연될 경우를 대비해 0200 기준 호출 고정 후 다중 검색 처리
+        const url = `https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst?serviceKey=${encodeURIComponent(kmaApiKey)}&pageNo=1&numOfRows=1000&dataType=JSON&base_date=${baseDate}&base_time=0200&nx=73&ny=134`;
 
         fetch(url)
             .then(res => res.json())
@@ -234,6 +235,12 @@
                         if (item.category === "PTY") ptyValue = item.fcstValue;
                     }
                 });
+
+                // 현재 타임 예보값이 비어있을 경우 직전 가까운 데이터 백업 탐색
+                if (!tmpValue) {
+                    const fallbackItem = items.find(item => item.category === "TMP");
+                    if (fallbackItem) tmpValue = fallbackItem.fcstValue;
+                }
 
                 if (tmpValue) document.getElementById('outdoorTemp').value = `${tmpValue} ℃`;
                 if (tmxValue) document.getElementById('maxTemp').value = `${tmxValue}℃`;
@@ -507,7 +514,6 @@
         document.body.removeChild(downloadAnchor);
     }
 
-    // 🚀 구동 제어: UI 틀을 만든 후 데이터를 유기적으로 바인딩
     buildForm();
     loadRealtimeData();
     fetchKmaWeather();
