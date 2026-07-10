@@ -68,7 +68,7 @@
             </div>
             <div class="form-group">
                 <label>탱크 설정 온도</label>
-                <input type="text" id="tankTemp" placeholder="예: 4.5" onblur="formatTankTemp(this)">
+                <input type="text" id="tankTemp" placeholder="예: 173 또는 17.3" onblur="formatTankTemp(this)">
             </div>
         </div>
         <div class="meta-grid">
@@ -172,15 +172,13 @@
         }
     }
 
-    // 춘천시 우두동 공공 기상 데이터 추출 함수 (Open-Meteo 사용으로 인증키 비요구 처리)
     function fetchChuncheonWeather() {
         const dateVal = document.getElementById('surveyDate').value;
         if (!dateVal) return;
         
         const todayStr = new Date().toISOString().substring(0, 10);
-        if (dateVal !== todayStr) return; // 오늘 날짜인 경우에만 실시간 날씨 자동 연동
+        if (dateVal !== todayStr) return;
 
-        // 춘천시 우두동 좌표 (위도: 37.904, 경도: 127.734)
         const url = `https://api.open-meteo.com/v1/forecast?latitude=37.904&longitude=127.734&current=temperature_2m,weather_code&timezone=Asia%2FSeoul`;
 
         fetch(url)
@@ -190,7 +188,6 @@
                     const temp = data.current.temperature_2m;
                     const code = data.current.weather_code;
                     
-                    // 기상 코드 매핑 (맑음, 흐림, 비, 눈)
                     let weatherResult = "맑음";
                     if ([1, 2, 3].includes(code)) weatherResult = "흐림";
                     else if ([51, 53, 55, 61, 63, 65, 80, 81, 82].includes(code)) weatherResult = "비";
@@ -216,10 +213,26 @@
         } else { timeMemory[currentTab] = val; }
     }
 
+    // 소수점 자동 삽입 로직 함수
+    function autoDecimalConvert(val) {
+        let clean = val.replace(/[^0-9.]/g, '');
+        if (clean === "" || isNaN(clean)) return "";
+        
+        // 사용자가 이미 소수점을 찍어둔 상태라면 그대로 반환
+        if (clean.includes('.')) return clean;
+        
+        // 2자리 혹은 3자리 이상의 정수 입력 시 마지막 한 자리를 소수점 아래로 변환 (예: 173 -> 17.3, 45 -> 4.5)
+        if (clean.length >= 2) {
+            let num = parseFloat(clean) / 10;
+            return num.toFixed(1);
+        }
+        return clean;
+    }
+
     function formatTankTemp(input) {
-        let val = input.value.trim().replace(/[^0-9.]/g, '');
-        if (val !== "" && !isNaN(val)) {
-            input.value = `${val} ℃`;
+        let converted = autoDecimalConvert(input.value.trim());
+        if (converted !== "") {
+            input.value = `${converted} ℃`;
         } else {
             input.value = "";
         }
@@ -232,17 +245,15 @@
 
     function onTempMemoryValue(input, targetTab = currentTab) {
         const key = `${input.dataset.loc}_${input.dataset.part}`;
-        let val = input.value.trim();
-        if (val !== "") {
-            val = val.replace(/[^0-9.]/g, '');
-            if (!isNaN(val) && val !== "") {
-                tempMemory[targetTab][key] = val;
-                input.value = `${val} ℃`;
-                return;
-            }
+        let converted = autoDecimalConvert(input.value.trim());
+        
+        if (converted !== "") {
+            tempMemory[targetTab][key] = converted;
+            input.value = `${converted} ℃`;
+        } else {
+            tempMemory[targetTab][key] = "";
+            input.value = "";
         }
-        tempMemory[targetTab][key] = "";
-        input.value = "";
     }
     
     function onTempBlur(input) {
