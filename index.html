@@ -133,7 +133,6 @@
 </div>
 
 <script>
-    // 공공데이터포털에서 발급받은 일반 인증키 적용 완료
     const kmaApiKey = "143ff1a5d1cd692d8ede35b26f0c8110edc28cfee4a111f0960f692e5a9b405a";
 
     const firebaseConfig = {
@@ -200,10 +199,8 @@
         }
     }
 
-    // 대한민국 기상청 단기예보 API 호출 로직 (충열로 251 격자좌표 X:73, Y:135)
     function fetchKmaWeather() {
         if (!kmaApiKey) return;
-
         const dateVal = document.getElementById('surveyDate').value;
         if (!dateVal) return;
         
@@ -222,22 +219,12 @@
                 let currentHour = new Date().getHours();
                 let currentHourStr = currentHour < 10 ? `0${currentHour}00` : `${currentHour}00`;
 
-                let tmpValue = "";
-                let tmxValue = "";
-                let tmnValue = "";
-                let skyValue = "";
-                let ptyValue = "";
+                let tmpValue = ""; let tmxValue = ""; let tmnValue = ""; let skyValue = ""; let ptyValue = "";
 
                 items.forEach(item => {
-                    if (item.category === "TMP" && item.fcstTime === currentHourStr) {
-                        tmpValue = item.fcstValue;
-                    }
-                    if (item.category === "TMX") {
-                        tmxValue = parseFloat(item.fcstValue).toFixed(0);
-                    }
-                    if (item.category === "TMN") {
-                        tmnValue = parseFloat(item.fcstValue).toFixed(0);
-                    }
+                    if (item.category === "TMP" && item.fcstTime === currentHourStr) tmpValue = item.fcstValue;
+                    if (item.category === "TMX") tmxValue = parseFloat(item.fcstValue).toFixed(0);
+                    if (item.category === "TMN") tmnValue = parseFloat(item.fcstValue).toFixed(0);
                     if (item.fcstTime === currentHourStr) {
                         if (item.category === "SKY") skyValue = item.fcstValue;
                         if (item.category === "PTY") ptyValue = item.fcstValue;
@@ -287,4 +274,174 @@
     }
 
     function formatTankTemp(input) {
-        let converted =
+        let converted = autoDecimalConvert(input.value.trim());
+        if (converted !== "") input.value = `${converted} ℃`;
+        else input.value = "";
+    }
+
+    function onTempFocus(input) {
+        const key = `${input.dataset.loc}_${input.dataset.part}`;
+        input.value = tempMemory[currentTab][key] || "";
+    }
+
+    function onTempMemoryValue(input, targetTab = currentTab) {
+        const key = `${input.dataset.loc}_${input.dataset.part}`;
+        let converted = autoDecimalConvert(input.value.trim());
+        if (converted !== "") {
+            tempMemory[targetTab][key] = converted;
+            input.value = `${converted} ℃`;
+        } else {
+            tempMemory[targetTab][key] = "";
+            input.value = "";
+        }
+    }
+    
+    function onTempBlur(input) {
+        onTempMemoryValue(input);
+    }
+
+    function switchTimeTab(targetTab) {
+        currentTab = targetTab;
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.getAttribute('data-turn') === targetTab);
+        });
+        document.getElementById('currentTimeLabel').innerText = `${targetTab} 조사시간`;
+        document.getElementById('surveyTimeInput').value = timeMemory[targetTab] || "";
+        
+        document.querySelectorAll('.temp-field').forEach(f => {
+            const key = `${f.dataset.loc}_${f.dataset.part}`;
+            const numVal = tempMemory[targetTab][key];
+            f.value = numVal ? `${numVal} ℃` : "";
+        });
+    }
+
+    function loadRealtimeData() {
+        const date = document.getElementById('surveyDate').value;
+        if (!date) return;
+
+        database.ref('records/' + date).once('value', (snapshot) => {
+            tempMemory = { "오전1회": {}, "오전2회": {}, "오후1회": {}, "오후2회": {} };
+            const data = snapshot.val();
+            if (data) {
+                if(data.meta) {
+                    document.getElementById('inspector').value = data.meta.inspector || "김성훈";
+                    document.getElementById('weather').value = data.meta.weather || "맑음";
+                    document.getElementById('outdoorTemp').value = data.meta.outdoorTemp || "";
+                    document.getElementById('maxTemp').value = data.meta.maxTemp || "";
+                    document.getElementById('minTemp').value = data.meta.minTemp || "";
+                    document.getElementById('tankTempA').value = data.meta.tankTempA || "";
+                    document.getElementById('tankTempB').value = data.meta.tankTempB || "";
+                    document.getElementById('tankTempC').value = data.meta.tankTempC || "";
+                    document.getElementById('remarks').value = data.meta.remarks || "";
+                }
+                for (const [turn, turnData] of Object.entries(data)) {
+                    if (turn === 'meta') continue;
+                    if (turnData.time) timeMemory[turn] = turnData.time;
+                    if (turnData.values) tempMemory[turn] = turnData.values;
+                }
+            } else {
+                document.getElementById('tankTempA').value = "";
+                document.getElementById('tankTempB').value = "";
+                document.getElementById('tankTempC').value = "";
+                document.getElementById('remarks').value = "";
+            }
+            switchTimeTab(currentTab);
+        });
+    }
+
+    function viewHistoryDetails(selectedDate, selectedTurn) {
+        document.getElementById('surveyDate').value = selectedDate;
+        database.ref('records/' + selectedDate).once('value', (snapshot) => {
+            tempMemory = { "오전1회": {}, "오전2회": {}, "오후1회": {}, "오후2회": {} };
+            const data = snapshot.val();
+            if (data) {
+                if(data.meta) {
+                    document.getElementById('inspector').value = data.meta.inspector || "김성훈";
+                    document.getElementById('weather').value = data.meta.weather || "맑음";
+                    document.getElementById('outdoorTemp').value = data.meta.outdoorTemp || "";
+                    document.getElementById('maxTemp').value = data.meta.maxTemp || "";
+                    document.getElementById('minTemp').value = data.meta.minTemp || "";
+                    document.getElementById('tankTempA').value = data.meta.tankTempA || "";
+                    document.getElementById('tankTempB').value = data.meta.tankTempB || "";
+                    document.getElementById('tankTempC').value = data.meta.tankTempC || "";
+                    document.getElementById('remarks').value = data.meta.remarks || "";
+                }
+                for (const [turn, turnData] of Object.entries(data)) {
+                    if (turn === 'meta') continue;
+                    if (turnData.time) timeMemory[turn] = turnData.time;
+                    if (turnData.values) tempMemory[turn] = turnData.values;
+                }
+            }
+            switchTimeTab(selectedTurn);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+    }
+
+    function saveDataToCloud() {
+        const date = document.getElementById('surveyDate').value;
+        const inspector = document.getElementById('inspector').value;
+        const weather = document.getElementById('weather').value;
+        const outdoorTemp = document.getElementById('outdoorTemp').value;
+        const maxTemp = document.getElementById('maxTemp').value;
+        const minTemp = document.getElementById('minTemp').value;
+        const tankTempA = document.getElementById('tankTempA').value;
+        const tankTempB = document.getElementById('tankTempB').value;
+        const tankTempC = document.getElementById('tankTempC').value;
+        const remarks = document.getElementById('remarks').value;
+        const inputTime = document.getElementById('surveyTimeInput').value;
+
+        if(!date) { alert('날짜를 지정해 주세요.'); return; }
+        
+        document.querySelectorAll('.temp-field').forEach(input => {
+            if(document.activeElement === input) onTempMemoryValue(input);
+        });
+
+        const metaData = { inspector, weather, outdoorTemp, maxTemp, minTemp, tankTempA, tankTempB, tankTempC, remarks };
+        const currentData = tempMemory[currentTab];
+
+        mySavingProcess = true;
+        database.ref('records/' + date + '/meta').set(metaData);
+        database.ref('records/' + date + '/' + currentTab).set({
+            time: inputTime,
+            values: currentData
+        }).then(() => {
+            alert(`☁️ [${currentTab}] 데이터가 정상적으로 저장되었습니다!`);
+            setTimeout(() => { mySavingProcess = false; }, 1500);
+        }).catch((error) => {
+            alert("저장 실패: " + error.message);
+            mySavingProcess = false;
+        });
+    }
+
+    function trackAllHistory() {
+        database.ref('records').on('value', (snapshot) => {
+            const allData = snapshot.val();
+            const histDiv = document.getElementById('historyList');
+            histDiv.innerHTML = '';
+            let newCloudDB = [];
+
+            if (!allData) {
+                histDiv.innerHTML = '<div style="color:#a0aec0; text-align:center; padding:15px;">저장 내역이 비어있습니다.</div>';
+                isInitialLoad = false; return;
+            }
+
+            Object.keys(allData).sort().reverse().forEach(date => {
+                const dateData = allData[date];
+                const meta = dateData.meta || {};
+                
+                for (const [turn, turnData] of Object.entries(dateData)) {
+                    if (turn === 'meta') continue;
+                    const count = turnData.values ? Object.keys(turnData.values).filter(k => turnData.values[k]).length : 0;
+                    if (count === 0) continue;
+
+                    const item = document.createElement('div');
+                    item.className = 'history-item';
+                    item.innerHTML = `
+                        <div class="history-clickable" onclick="viewHistoryDetails('${date}', '${turn}')">
+                            <span>🔍 <b>${date}</b> - ${turn} (${count}건)</span>
+                        </div>
+                        <button class="btn-del" onclick="deleteCloudGroup('${date}', '${turn}')">삭제</button>
+                    `;
+                    histDiv.appendChild(item);
+
+                    if(turn
