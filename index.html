@@ -81,40 +81,12 @@
             </div>
         </div>
         
-        <!-- 탱크 온도 레이아웃 (설정온도 행) -->
-        <div class="meta-grid-three">
+        <div class="meta-grid" style="margin-bottom: 12px;">
             <div class="form-group">
-                <label>A탱크 설정온도</label>
-                <input type="text" id="tankTempA" placeholder="예: 173" onblur="formatTankTemp(this)">
+                <label style="color: #2b6cb0;">물온도 (SV설정온도)</label>
+                <input type="text" id="waterSvTemp" placeholder="예: 17.3" onblur="formatWaterTemp(this)" style="border-color: #bee3f8;">
             </div>
             <div class="form-group">
-                <label>B탱크 설정온도</label>
-                <input type="text" id="tankTempB" placeholder="예: 173" onblur="formatTankTemp(this)">
-            </div>
-            <div class="form-group">
-                <label>C탱크 설정온도</label>
-                <input type="text" id="tankTempC" placeholder="예: 173" onblur="formatTankTemp(this)">
-            </div>
-        </div>
-
-        <!-- 탱크 온도 레이아웃 (실제온도 행) -->
-        <div class="meta-grid-three" style="margin-bottom: 12px;">
-            <div class="form-group">
-                <label style="color: #2b6cb0;">A탱크 실제온도</label>
-                <input type="text" id="tankRealTempA" placeholder="실제 측정치" onblur="formatTankTemp(this)" style="border-color: #bee3f8;">
-            </div>
-            <div class="form-group">
-                <label style="color: #2b6cb0;">B탱크 실제온도</label>
-                <input type="text" id="tankRealTempB" placeholder="실제 측정치" onblur="formatTankTemp(this)" style="border-color: #bee3f8;">
-            </div>
-            <div class="form-group">
-                <label style="color: #2b6cb0;">C탱크 실제온도</label>
-                <input type="text" id="tankRealTempC" placeholder="실제 측정치" onblur="formatTankTemp(this)" style="border-color: #bee3f8;">
-            </div>
-        </div>
-
-        <div class="meta-grid">
-            <div class="form-group" style="grid-column: span 2;">
                 <label>특이사항</label>
                 <input type="text" id="remarks" placeholder="특이사항을 입력해 주세요">
             </div>
@@ -291,18 +263,7 @@
         } else { timeMemory[currentTab] = val; }
     }
 
-    function autoDecimalConvert(val) {
-        let clean = val.replace(/[^0-9.]/g, '');
-        if (clean === "" || isNaN(clean)) return "";
-        if (clean.includes('.')) return clean;
-        if (clean.length >= 2) {
-            let num = parseFloat(clean) / 10;
-            return num.toFixed(1);
-        }
-        return clean;
-    }
-
-    function formatTankTemp(input) {
+    function formatWaterTemp(input) {
         let raw = input.value.replace(/[^0-9.]/g, '').trim();
         if (raw !== "") {
             if(!raw.includes('.') && raw.length >= 2 && parseFloat(raw) > 50) {
@@ -370,12 +331,7 @@
                     document.getElementById('outdoorTemp').value = data.meta.outdoorTemp || "";
                     document.getElementById('maxTemp').value = data.meta.maxTemp || "";
                     document.getElementById('minTemp').value = data.meta.minTemp || "";
-                    document.getElementById('tankTempA').value = data.meta.tankTempA || "";
-                    document.getElementById('tankTempB').value = data.meta.tankTempB || "";
-                    document.getElementById('tankTempC').value = data.meta.tankTempC || "";
-                    document.getElementById('tankRealTempA').value = data.meta.tankRealTempA || "";
-                    document.getElementById('tankRealTempB').value = data.meta.tankRealTempB || "";
-                    document.getElementById('tankRealTempC').value = data.meta.tankRealTempC || "";
+                    document.getElementById('waterSvTemp').value = data.meta.waterSvTemp || "";
                     document.getElementById('remarks').value = data.meta.remarks || "";
                 }
                 for (const [turn, turnData] of Object.entries(data)) {
@@ -384,12 +340,7 @@
                     if (turnData.values) tempMemory[turn] = turnData.values;
                 }
             } else {
-                document.getElementById('tankTempA').value = "";
-                document.getElementById('tankTempB').value = "";
-                document.getElementById('tankTempC').value = "";
-                document.getElementById('tankRealTempA').value = "";
-                document.getElementById('tankRealTempB').value = "";
-                document.getElementById('tankRealTempC').value = "";
+                document.getElementById('waterSvTemp').value = "";
                 document.getElementById('remarks').value = "";
             }
             switchTimeTab(currentTab);
@@ -408,12 +359,7 @@
                     document.getElementById('outdoorTemp').value = data.meta.outdoorTemp || "";
                     document.getElementById('maxTemp').value = data.meta.maxTemp || "";
                     document.getElementById('minTemp').value = data.meta.minTemp || "";
-                    document.getElementById('tankTempA').value = data.meta.tankTempA || "";
-                    document.getElementById('tankTempB').value = data.meta.tankTempB || "";
-                    document.getElementById('tankTempC').value = data.meta.tankTempC || "";
-                    document.getElementById('tankRealTempA').value = data.meta.tankRealTempA || "";
-                    document.getElementById('tankRealTempB').value = data.meta.tankRealTempB || "";
-                    document.getElementById('tankRealTempC').value = data.meta.tankRealTempC || "";
+                    document.getElementById('waterSvTemp').value = data.meta.waterSvTemp || "";
                     document.getElementById('remarks').value = data.meta.remarks || "";
                 }
                 for (const [turn, turnData] of Object.entries(data)) {
@@ -434,12 +380,7 @@
         const outdoorTemp = document.getElementById('outdoorTemp').value;
         const maxTemp = document.getElementById('maxTemp').value;
         const minTemp = document.getElementById('minTemp').value;
-        const tankTempA = document.getElementById('tankTempA').value;
-        const tankTempB = document.getElementById('tankTempB').value;
-        const tankTempC = document.getElementById('tankTempC').value;
-        const tankRealTempA = document.getElementById('tankRealTempA').value;
-        const tankRealTempB = document.getElementById('tankRealTempB').value;
-        const tankRealTempC = document.getElementById('tankRealTempC').value;
+        const waterSvTemp = document.getElementById('waterSvTemp').value;
         const remarks = document.getElementById('remarks').value;
         const inputTime = document.getElementById('surveyTimeInput').value;
 
@@ -449,7 +390,7 @@
             if(document.activeElement === input) onTempMemoryValue(input);
         });
 
-        const metaData = { inspector, weather, outdoorTemp, maxTemp, minTemp, tankTempA, tankTempB, tankTempC, tankRealTempA, tankRealTempB, tankRealTempC, remarks };
+        const metaData = { inspector, weather, outdoorTemp, maxTemp, minTemp, waterSvTemp, remarks };
         const currentData = tempMemory[currentTab];
 
         mySavingProcess = true;
@@ -485,7 +426,6 @@
                 for (const [turn, turnData] of Object.entries(dateData)) {
                     if (turn === 'meta') continue;
                     
-                    // 지점 데이터 개수 안전하게 체크
                     let count = 0;
                     if(turnData && turnData.values) {
                         count = Object.keys(turnData.values).filter(k => turnData.values[k]).length;
@@ -508,8 +448,7 @@
                             newCloudDB.push({
                                 date, inspector: meta.inspector || "", weather: meta.weather || "",
                                 outdoorTemp: meta.outdoorTemp || "", maxTemp: meta.maxTemp || "", minTemp: meta.minTemp || "",
-                                tankTempA: meta.tankTempA || "", tankTempB: meta.tankTempB || "", tankTempC: meta.tankTempC || "",
-                                tankRealTempA: meta.tankRealTempA || "", tankRealTempB: meta.tankRealTempB || "", tankRealTempC: meta.tankRealTempC || "",
+                                waterSvTemp: meta.waterSvTemp || "",
                                 turn, time: turnData.time || "", loc, part, value, remarks: meta.remarks || ""
                             });
                         }
@@ -542,9 +481,9 @@
 
     function exportDataToCSV() {
         if(globalCloudDB.length === 0) { alert('내보낼 데이터가 없습니다.'); return; }
-        let csvString = "\uFEFF조사일자,조사자,날씨,기상청현재기온,기상청최고기온,기상청최저기온,A탱크설정온도,A탱크실제온도,B탱크설정온도,B탱크실제온도,C탱크설정온도,C탱크실제온도,조사회차,실제측정시간,측정지점,부위분류,온도(℃),특이사항\n";
+        let csvString = "\uFEFF조사일자,조사자,날씨,기상청현재기온,기상청최고기온,기상청최저기온,물온도(SV설정온도),조사회차,실제측정시간,측정지점,부위분류,온도(℃),특이사항\n";
         globalCloudDB.forEach(r => {
-            csvString += `"${r.date}","${r.inspector}","${r.weather}","${r.outdoorTemp}","${r.maxTemp}","${r.minTemp}","${r.tankTempA}","${r.tankRealTempA}","${r.tankTempB}","${r.tankRealTempB}","${r.tankTempC}","${r.tankRealTempC}","${r.turn}","${r.time}","${r.loc}","${r.part}","${r.value}","${r.remarks}"\n`;
+            csvString += `"${r.date}","${r.inspector}","${r.weather}","${r.outdoorTemp}","${r.maxTemp}","${r.minTemp}","${r.waterSvTemp}","${r.turn}","${r.time}","${r.loc}","${r.part}","${r.value}","${r.remarks}"\n`;
         });
         const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
         const downloadAnchor = document.createElement("a");
