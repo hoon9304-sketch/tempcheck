@@ -73,7 +73,7 @@
                 <input type="text" id="outdoorTemp" readonly style="background-color: #f7fafc; color: #4a5568;" placeholder="연동 중...">
             </div>
             <div class="form-group" style="display: flex; flex-direction: column;">
-                <label>기상청 최고 / 최저</label>
+                <label>기상청 최고 / 最低 (최저)</label>
                 <div style="display: flex; gap: 4px;">
                     <input type="text" id="maxTemp" readonly style="background-color: #fff5f5; color: #c53030; text-align: center; padding: 8px 2px;" placeholder="최고">
                     <input type="text" id="minTemp" readonly style="background-color: #ebf8ff; color: #2b6cb0; text-align: center; padding: 8px 2px;" placeholder="최저">
@@ -161,6 +161,7 @@
     let isInitialLoad = true;
     let mySavingProcess = false;
 
+    // 초기 날짜 세팅
     document.getElementById('surveyDate').value = new Date().toISOString().substring(0, 10);
 
     function buildForm() {
@@ -205,7 +206,10 @@
         if (!dateVal) return;
         
         const todayStr = new Date().toISOString().substring(0, 10);
-        if (dateVal !== todayStr) return; 
+        if (dateVal !== todayStr) {
+            document.getElementById('outdoorTemp').placeholder = "당일만 연동가능";
+            return; 
+        }
 
         const baseDate = dateVal.replace(/-/g, '');
         const url = `https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst?serviceKey=${encodeURIComponent(kmaApiKey)}&pageNo=1&numOfRows=1000&dataType=JSON&base_date=${baseDate}&base_time=0500&nx=73&ny=135`;
@@ -242,11 +246,15 @@
                 
                 document.getElementById('weather').value = weatherResult;
             })
-            .catch(err => console.log("기상청 API 연동 실패:", err));
+            .catch(err => {
+                console.log("기상청 API 연동 실패:", err);
+                document.getElementById('outdoorTemp').placeholder = "연동 실패";
+            });
     }
 
     function onDateChange() {
         document.getElementById('outdoorTemp').value = "";
+        document.getElementById('outdoorTemp').placeholder = "연동 중...";
         document.getElementById('maxTemp').value = "";
         document.getElementById('minTemp').value = "";
         document.getElementById('remarks').value = "";
@@ -321,6 +329,8 @@
 
         database.ref('records/' + date).once('value', (snapshot) => {
             tempMemory = { "오전1회": {}, "오전2회": {}, "오후1회": {}, "오후2회": {} };
+            timeMemory = { "오전1회": "09:00", "오전2회": "11:00", "오후1회": "14:00", "오후2회": "16:00" };
+            
             const data = snapshot.val();
             if (data) {
                 if(data.meta) {
@@ -444,4 +454,64 @@
                     `;
                     histDiv.appendChild(item);
 
-                    if(turn
+                    if(turnData.values) {
+                        for(const [key, value] of Object.entries(turnData.values)) {
+                            if(!value) continue;
+                            const [loc, part] = key.split('_');
+                            newCloudDB.push({
+                                date, inspector: meta.inspector || "", weather: meta.weather || "",
+                                outdoorTemp: meta.outdoorTemp || "", maxTemp: meta.maxTemp || "", minTemp: meta.minTemp || "",
+                                tankTempA: meta.tankTempA || "", tankTempB: meta.tankTempB || "", tankTempC: meta.tankTempC || "",
+                                turn, time: turnData.time || "", loc, part, value, remarks: meta.remarks || ""
+                            });
+                        }
+                    }
+                }
+            });
+
+            if (!isInitialLoad && !mySavingProcess && newCloudDB.length > globalCloudDB.length) {
+                const latestRecord = newCloudDB[0];
+                if(latestRecord) {
+                    alert(`🔔 실시간 알림: 새로운 기록이 등록되었습니다!\n[날짜]: ${latestRecord.date}\n[회차]: ${latestRecord.turn}`);
+                }
+            }
+            globalCloudDB = newCloudDB;
+            isInitialLoad = false;
+        });
+    }
+
+    function deleteCloudGroup(date, turn) {
+        if (confirm(`⚠️ [${date}]의 [${turn}] 기록을 삭제하시겠습니까?`)) {
+            mySavingProcess = true;
+            database.ref('records/' + date + '/' + turn).remove().then(() => {
+                setTimeout(() => { mySavingProcess = false; }, 1000);
+            }).catch((error) => {
+                alert("삭제 실패: " + error.message);
+                mySavingProcess = false;
+            });
+        }
+    }
+
+    function exportDataToCSV() {
+        if(globalCloudDB.length === 0) { alert('내보낼 데이터가 없습니다.'); return; }
+        let csvString = "\uFEFF조사일자,조사자,날씨,기상청현재기온,기상청최고기온,기상청최저기온,A탱크설정온도,B탱크설정온도,C탱크설정온도,조사회차,실제측정시간,측정지점,부위분류,온도(℃),특이사항\n";
+        globalCloudDB.forEach(r => {
+            csvString += `"${r.date}","${r.inspector}","${r.weather}","${r.outdoorTemp}","${r.maxTemp}","${r.minTemp}","${r.tankTempA}","${r.tankTempB}","${r.tankTempC}","${r.turn}","${r.time}","${r.loc}","${r.part}","${r.value}","${r.remarks}"\n`;
+        });
+        const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+        const downloadAnchor = document.createElement("a");
+        downloadAnchor.setAttribute("href", URL.createObjectURL(blob));
+        downloadAnchor.setAttribute("download", `통합_포장_온도조사_리포트.csv`);
+        document.body.appendChild(downloadAnchor);
+        downloadAnchor.click();
+        document.body.removeChild(downloadAnchor);
+    }
+
+    // 🚀 구동 제어: UI 틀을 만든 후 데이터를 유기적으로 바인딩
+    buildForm();
+    loadRealtimeData();
+    fetchKmaWeather();
+    trackAllHistory();
+</script>
+</body>
+</html>
