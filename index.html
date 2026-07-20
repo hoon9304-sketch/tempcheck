@@ -153,7 +153,7 @@
         "C 구역": [
             { id: "C4", label: "C4 지점", type: "dual_ad" },
             { id: "C6", label: "C6 지점", type: "dual_ad" },
-            { id: "C7", label: "C7 지점", type: "simple_io" } // C7 지점: 입수구 1개, 출수구 1개
+            { id: "C7", label: "C7 지점", type: "simple_io" }
         ]
     };
 
@@ -180,7 +180,6 @@
                 row.className = 'location-row';
                 
                 if (loc.type === "simple_io") {
-                    // C7 지점: 입수구 1개, 출수구 1개
                     row.innerHTML = `
                         <div class="location-name">${loc.label}</div>
                         <div class="io-grid">
@@ -199,7 +198,6 @@
                         </div>
                     `;
                 } else {
-                    // 기존 지점: 입수구(A/D), 출수구(A/D)
                     row.innerHTML = `
                         <div class="location-name">${loc.label}</div>
                         <div class="io-grid">
@@ -321,9 +319,25 @@
         }
     }
 
+    function getC7CompatibleVal(turnValues, partType) {
+        if (!turnValues) return "";
+        if (turnValues[`C7_${partType}`]) return turnValues[`C7_${partType}`];
+        if (turnValues[`C7_${partType}_A`]) return turnValues[`C7_${partType}_A`];
+        if (turnValues[`C7_${partType}_D`]) return turnValues[`C7_${partType}_D`];
+        if (partType === "입수구" && turnValues["C7_단일온도"]) return turnValues["C7_단일온도"];
+        return "";
+    }
+
     function onTempFocus(input) {
-        const key = `${input.dataset.loc}_${input.dataset.part}`;
-        input.value = tempMemory[currentTab][key] || "";
+        const loc = input.dataset.loc;
+        const part = input.dataset.part;
+        const key = `${loc}_${part}`;
+        
+        let val = tempMemory[currentTab][key] || "";
+        if (!val && loc === "C7") {
+            val = getC7CompatibleVal(tempMemory[currentTab], part);
+        }
+        input.value = val;
     }
 
     function onTempMemoryValue(input, targetTab = currentTab) {
@@ -355,8 +369,14 @@
         document.getElementById('surveyTimeInput').value = timeMemory[targetTab] || "";
         
         document.querySelectorAll('.temp-field').forEach(f => {
-            const key = `${f.dataset.loc}_${f.dataset.part}`;
-            const numVal = tempMemory[targetTab][key];
+            const loc = f.dataset.loc;
+            const part = f.dataset.part;
+            const key = `${loc}_${part}`;
+            
+            let numVal = tempMemory[targetTab][key];
+            if (!numVal && loc === "C7") {
+                numVal = getC7CompatibleVal(tempMemory[targetTab], part);
+            }
             f.value = numVal ? `${numVal} ℃` : "";
         });
     }
@@ -490,7 +510,10 @@
                     if(turnData && turnData.values) {
                         for(const [key, value] of Object.entries(turnData.values)) {
                             if(!value) continue;
-                            const [loc, part] = key.split('_');
+                            const parts = key.split('_');
+                            const loc = parts[0];
+                            const part = parts.slice(1).join('_');
+
                             newCloudDB.push({
                                 date, inspector: meta.inspector || "", weather: meta.weather || "",
                                 outdoorTemp: meta.outdoorTemp || "", maxTemp: meta.maxTemp || "", minTemp: meta.minTemp || "",
