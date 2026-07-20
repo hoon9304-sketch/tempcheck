@@ -27,7 +27,6 @@
         .location-row { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; margin-bottom: 8px; }
         .location-name { font-weight: bold; color: #1a202c; border-bottom: 1px dashed #cbd5e0; padding-bottom: 4px; margin-bottom: 8px; }
         .io-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .single-grid { display: block; }
         .part-box { display: flex; flex-direction: column; background: #fff; border: 1px solid #e2e8f0; padding: 6px; border-radius: 6px; }
         .part-title { font-size: 0.8rem; font-weight: bold; color: #718096; margin-bottom: 4px; }
         .part-inputs input { width: 100%; padding: 6px; border: 1px solid var(--border-color); border-radius: 4px; text-align: center; font-size: 15px; }
@@ -140,21 +139,21 @@
 
     const zoneStructure = {
         "A 구역": [
-            { id: "A1", label: "A1 지점", type: "dual" },
-            { id: "A3-1", label: "A3-1 (사무실방향)", type: "dual" },
-            { id: "A3-2", label: "A3-2 (포장방향)", type: "dual" },
-            { id: "A4", label: "A4 지점", type: "dual" },
-            { id: "A6", label: "A6 지점", type: "dual" }
+            { id: "A1", label: "A1 지점", type: "dual_ad" },
+            { id: "A3-1", label: "A3-1 (사무실방향)", type: "dual_ad" },
+            { id: "A3-2", label: "A3-2 (포장방향)", type: "dual_ad" },
+            { id: "A4", label: "A4 지점", type: "dual_ad" },
+            { id: "A6", label: "A6 지점", type: "dual_ad" }
         ],
         "B 구역": [
-            { id: "B1", label: "B1 지점", type: "dual" },
-            { id: "B3", label: "B3 지점", type: "dual" },
-            { id: "B4", label: "B4 지점", type: "dual" }
+            { id: "B1", label: "B1 지점", type: "dual_ad" },
+            { id: "B3", label: "B3 지점", type: "dual_ad" },
+            { id: "B4", label: "B4 지점", type: "dual_ad" }
         ],
         "C 구역": [
-            { id: "C4", label: "C4 지점", type: "dual" },
-            { id: "C6", label: "C6 지점", type: "dual" },
-            { id: "C7", label: "C7 지점", type: "single" } // C7 지점 단일 통합
+            { id: "C4", label: "C4 지점", type: "dual_ad" },
+            { id: "C6", label: "C6 지점", type: "dual_ad" },
+            { id: "C7", label: "C7 지점", type: "simple_io" } // C7 지점: 입수구 1개, 출수구 1개
         ]
     };
 
@@ -180,19 +179,27 @@
                 const row = document.createElement('div');
                 row.className = 'location-row';
                 
-                if (loc.type === "single") {
+                if (loc.type === "simple_io") {
+                    // C7 지점: 입수구 1개, 출수구 1개
                     row.innerHTML = `
                         <div class="location-name">${loc.label}</div>
-                        <div class="single-grid">
+                        <div class="io-grid">
                             <div class="part-box">
-                                <span class="part-title">온도 측정치</span>
+                                <span class="part-title">입수구</span>
                                 <div class="part-inputs">
-                                    <input type="text" inputmode="decimal" placeholder="℃" class="temp-field" data-loc="${loc.id}" data-part="단일온도" onfocus="onTempFocus(this)" oninput="handleAutoFinish(this)" onblur="onTempBlur(this)">
+                                    <input type="text" inputmode="decimal" placeholder="℃" class="temp-field" data-loc="${loc.id}" data-part="입수구" onfocus="onTempFocus(this)" oninput="handleAutoFinish(this)" onblur="onTempBlur(this)">
+                                </div>
+                            </div>
+                            <div class="part-box">
+                                <span class="part-title">출수구</span>
+                                <div class="part-inputs">
+                                    <input type="text" inputmode="decimal" placeholder="℃" class="temp-field" data-loc="${loc.id}" data-part="출수구" onfocus="onTempFocus(this)" oninput="handleAutoFinish(this)" onblur="onTempBlur(this)">
                                 </div>
                             </div>
                         </div>
                     `;
                 } else {
+                    // 기존 지점: 입수구(A/D), 출수구(A/D)
                     row.innerHTML = `
                         <div class="location-name">${loc.label}</div>
                         <div class="io-grid">
@@ -220,11 +227,10 @@
 
     function handleAutoFinish(input) {
         let clean = input.value.replace(/[^0-9.]/g, '');
-        // 3자리 숫자 연속 입력 시 (예: 173 -> 17.3)
         if (!clean.includes('.') && clean.length === 3) {
             let num = (parseFloat(clean) / 10).toFixed(1);
             input.value = num;
-            input.blur(); // 3자리 완료 시 키보드 자동으로 내림
+            input.blur();
         }
     }
 
