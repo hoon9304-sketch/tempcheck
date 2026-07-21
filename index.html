@@ -223,11 +223,29 @@
         }
     }
 
+    // -------------------------------------------------------------
+    // [개선된 입력 제어: A 입력 후 D로만 1회 자동 이동]
+    // -------------------------------------------------------------
     function handleAutoFinish(input) {
         let clean = input.value.replace(/[^0-9.]/g, '');
         if (!clean.includes('.') && clean.length === 3) {
             let num = (parseFloat(clean) / 10).toFixed(1);
             input.value = num;
+            
+            // A 항목일 때만 바로 옆 D 항목으로 1회 이동
+            const part = input.dataset.part;
+            if (part && part.endsWith('_A')) {
+                const parentBox = input.closest('.part-inputs');
+                if (parentBox) {
+                    const inputs = parentBox.querySelectorAll('input');
+                    if (inputs.length > 1 && inputs[0] === input) {
+                        inputs[1].focus(); // 바로 옆 D 입력 칸으로 이동
+                        return;
+                    }
+                }
+            }
+            
+            // D 항목이거나 일반 항목일 때는 이동하지 않고 입력 종료 (포커스 해제)
             input.blur();
         }
     }
@@ -239,40 +257,40 @@
         
         const todayStr = new Date().toISOString().substring(0, 10);
         if (dateVal !== todayStr) {
+            document.getElementById('outdoorTemp').value = "";
             document.getElementById('outdoorTemp').placeholder = "당일만 연동가능";
+            document.getElementById('maxTemp').placeholder = "최고";
+            document.getElementById('minTemp').placeholder = "최저";
             return; 
         }
 
         const baseDate = dateVal.replace(/-/g, '');
-        const url = `https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst?serviceKey=${encodeURIComponent(kmaApiKey)}&pageNo=1&numOfRows=1000&dataType=JSON&base_date=${baseDate}&base_time=0200&nx=73&ny=134`;
+        const nx = "73";
+        const ny = "134";
 
-        fetch(url)
+        const vilageUrl = `https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst?serviceKey=${encodeURIComponent(kmaApiKey)}&pageNo=1&numOfRows=1000&dataType=JSON&base_date=${baseDate}&base_time=0200&nx=${nx}&ny=${ny}`;
+
+        fetch(vilageUrl)
             .then(res => res.json())
             .then(resData => {
                 const items = resData?.response?.body?.items?.item;
                 if (!items) return;
 
-                let currentHour = new Date().getHours();
-                let currentHourStr = currentHour < 10 ? `0${currentHour}00` : `${currentHour}00`;
+                let now = new Date();
+                let currentHourStr = now.getHours() < 10 ? `0${now.getHours()}00` : `${now.getHours()}00`;
 
-                let tmpValue = ""; let tmxValue = ""; let tmnValue = ""; let skyValue = ""; let ptyValue = "";
+                let tmxValue = ""; let tmnValue = ""; let skyValue = ""; let ptyValue = ""; let fcstTmp = "";
 
                 items.forEach(item => {
-                    if (item.category === "TMP" && item.fcstTime === currentHourStr) tmpValue = item.fcstValue;
                     if (item.category === "TMX") tmxValue = parseFloat(item.fcstValue).toFixed(0);
                     if (item.category === "TMN") tmnValue = parseFloat(item.fcstValue).toFixed(0);
                     if (item.fcstTime === currentHourStr) {
+                        if (item.category === "TMP") fcstTmp = item.fcstValue;
                         if (item.category === "SKY") skyValue = item.fcstValue;
                         if (item.category === "PTY") ptyValue = item.fcstValue;
                     }
                 });
 
-                if (!tmpValue) {
-                    const fallbackItem = items.find(item => item.category === "TMP");
-                    if (fallbackItem) tmpValue = fallbackItem.fcstValue;
-                }
-
-                if (tmpValue) document.getElementById('outdoorTemp').value = `${tmpValue} ℃`;
                 if (tmxValue) document.getElementById('maxTemp').value = `${tmxValue}℃`;
                 if (tmnValue) document.getElementById('minTemp').value = `${tmnValue}℃`;
 
@@ -282,11 +300,34 @@
                 else if (skyValue === "3" || skyValue === "4") weatherResult = "흐림";
                 
                 document.getElementById('weather').value = weatherResult;
+
+                if (fcstTmp && !document.getElementById('outdoorTemp').value) {
+                    document.getElementById('outdoorTemp').value = `${fcstTmp} ℃`;
+                }
             })
-            .catch(err => {
-                console.log("기상청 API 연동 실패:", err);
-                document.getElementById('outdoorTemp').placeholder = "연동 실패";
-            });
+            .catch(err => console.log("단기예보 연동 오류:", err));
+
+        let now = new Date();
+        if (now.getMinutes() < 40) {
+            now.setHours(now.getHours() - 1);
+        }
+        let ncstDate = now.toISOString().substring(0, 10).replace(/-/g, '');
+        let ncstTime = now.getHours() < 10 ? `0${now.getHours()}00` : `${now.getHours()}00`;
+
+        const ncstUrl = `https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst?serviceKey=${encodeURIComponent(kmaApiKey)}&pageNo=1&numOfRows=100&dataType=JSON&base_date=${ncstDate}&base_time=${ncstTime}&nx=${nx}&ny=${ny}`;
+
+        fetch(ncstUrl)
+            .then(res => res.json())
+            .then(resData => {
+                const items = resData?.response?.body?.items?.item;
+                if (!items) return;
+
+                const T1H = items.find(item => item.category === "T1H");
+                if (T1H && T1H.obsrValue) {
+                    document.getElementById('outdoorTemp').value = `${T1H.obsrValue} ℃`;
+                }
+            })
+            .catch(err => console.log("초단기실황 연동 오류:", err));
     }
 
     function onDateChange() {
